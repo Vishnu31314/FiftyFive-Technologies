@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FiftyFive · DevOps Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --void:#03070f;--deep:#060e1e;--surface:#0a1628;--raised:#0f1f38;
+  --border:#152544;--border2:#1e3460;
+  --cyan:#00e5ff;--cyan2:#00b8d4;--green:#00ff9d;--green2:#00cc7a;
+  --amber:#ffb300;--red:#ff3d5a;--purple:#bd93f9;
+  --white:#f0f8ff;--grey:#4a6b8a;--grey2:#2a4060;
+  --font-mono:'JetBrains Mono',monospace;--font-disp:'Syne',sans-serif;
+  --glow-c:0 0 24px rgba(0,229,255,0.3);
+  --glow-g:0 0 24px rgba(0,255,157,0.3);
+  --sidebar:220px;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font-mono);background:var(--void);color:var(--white);display:flex;flex-direction:column}
+
+/* grid bg */
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(0,229,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.02) 1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 50% 40% at 20% 10%,rgba(0,80,200,0.07) 0%,transparent 70%),
+             radial-gradient(ellipse 40% 50% at 80% 90%,rgba(0,229,255,0.05) 0%,transparent 70%);
+  pointer-events:none;z-index:0}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:52px;background:rgba(3,7,15,0.95);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;z-index:100;flex-shrink:0;position:relative;
+}
+.tb-left{display:flex;align-items:center;gap:12px}
+.tb-logo{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#0050d0,#00e5ff);display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:var(--glow-c)}
+.tb-brand{font-family:var(--font-disp);font-weight:800;font-size:0.95rem}
+.tb-tag{font-size:0.6rem;color:var(--grey);letter-spacing:2px;text-transform:uppercase}
+.tb-right{display:flex;align-items:center;gap:12px}
+.live-pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:rgba(0,255,157,0.07);border:1px solid rgba(0,255,157,0.2);font-size:0.68rem;color:var(--green)}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.clock-pill{padding:4px 10px;border-radius:999px;background:rgba(0,229,255,0.05);border:1px solid var(--border);font-size:0.68rem;color:var(--grey)}
+
+/* ── LAYOUT ── */
+.layout{display:flex;flex:1;overflow:hidden;position:relative;z-index:1}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar);flex-shrink:0;
+  background:rgba(6,14,30,0.98);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:16px 0;
+}
+.sidebar::-webkit-scrollbar{width:0}
+.sb-section{margin-bottom:20px}
+.sb-label{font-size:0.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--grey2);padding:0 16px;margin-bottom:6px}
+.sb-btn{
+  width:100%;padding:9px 16px;
+  display:flex;align-items:center;gap:9px;
+  background:transparent;border:none;
+  color:var(--grey);font-family:var(--font-mono);font-size:0.75rem;
+  cursor:pointer;transition:all 0.15s;text-align:left;
+  border-left:2px solid transparent;
+}
+.sb-btn:hover{color:var(--white);background:rgba(255,255,255,0.03)}
+.sb-btn.on{color:var(--cyan);background:rgba(0,229,255,0.05);border-left-color:var(--cyan)}
+.sb-ico{font-size:0.9rem;width:18px;text-align:center}
+.sb-divider{height:1px;background:var(--border);margin:8px 12px}
+
+/* live stats in sidebar */
+.sb-stat{padding:8px 16px;display:flex;justify-content:space-between;align-items:center}
+.sb-stat-label{font-size:0.65rem;color:var(--grey)}
+.sb-stat-val{font-size:0.78rem;font-weight:700}
+
+/* ── CONTENT AREA ── */
+.content{flex:1;overflow-y:auto;padding:22px 24px}
+.content::-webkit-scrollbar{width:5px}
+.content::-webkit-scrollbar-track{background:var(--void)}
+.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── PAGE TRANSITIONS ── */
+.page{display:none}
+.page.on{display:block;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── PAGE TITLE ── */
+.page-title{
+  font-family:var(--font-disp);font-size:1.4rem;font-weight:800;
+  color:var(--white);margin-bottom:4px;
+  display:flex;align-items:center;gap:10px;
+}
+.page-sub{font-size:0.7rem;color:var(--grey);margin-bottom:20px;letter-spacing:0.5px}
+
+/* ── KPI ROW ── */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.kpi{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px;position:relative;overflow:hidden;
+  transition:border-color 0.2s,transform 0.2s;cursor:default;
+}
+.kpi:hover{border-color:var(--border2);transform:translateY(-2px)}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;opacity:0.7}
+.kpi.c::after{background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+.kpi.g::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.kpi.a::after{background:linear-gradient(90deg,transparent,var(--amber),transparent)}
+.kpi.p::after{background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.kpi-ico{font-size:1.1rem;margin-bottom:8px;display:block}
+.kpi-lbl{font-size:0.6rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--grey);margin-bottom:5px}
+.kpi-val{font-size:1.8rem;font-weight:700;line-height:1}
+.kpi-val.c{color:var(--cyan)}.kpi-val.g{color:var(--green)}.kpi-val.a{color:var(--amber)}.kpi-val.p{color:var(--purple)}
+.kpi-sub{font-size:0.65rem;color:var(--grey);margin-top:4px}
+
+/* ── PANEL ── */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+.ph{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ph-title{font-family:var(--font-disp);font-size:0.78rem;font-weight:600;display:flex;align-items:center;gap:7px}
+.ph-dot{width:5px;height:5px;border-radius:50%;background:var(--cyan)}
+.ph-meta{font-size:0.65rem;color:var(--grey)}
+.pb{padding:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.two{grid-template-columns:1fr}}
+.three{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:16px}
+
+/* ── BADGE ── */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:500}
+.badge.ok{background:rgba(0,255,157,0.08);color:var(--green);border:1px solid rgba(0,255,157,0.2)}
+.badge.err{background:rgba(255,61,90,0.08);color:var(--red);border:1px solid rgba(255,61,90,0.2)}
+.badge.wait{background:rgba(255,179,0,0.08);color:var(--amber);border:1px solid rgba(255,179,0,0.2)}
+
+/* ── TABLE ── */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:0.76rem}
+thead tr{border-bottom:1px solid var(--border)}
+th{padding:8px 12px;text-align:left;font-size:0.6rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--grey);font-weight:500;white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid rgba(21,37,68,0.4);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:background 0.1s}
+tbody tr:hover td{background:rgba(0,229,255,0.02)}
+.td-id{color:var(--grey2);font-size:0.67rem}
+.td-ep{color:var(--cyan);font-family:var(--font-mono)}
+.td-ok{color:var(--green)}.td-err{color:var(--red)}.td-t{color:var(--grey);font-size:0.7rem}
+.mt{display:inline-block;padding:2px 6px;border-radius:4px;font-size:0.62rem;font-weight:700;letter-spacing:0.5px}
+.mt-g{background:rgba(0,255,157,0.1);color:var(--green);border:1px solid rgba(0,255,157,0.2)}
+.mt-p{background:rgba(255,179,0,0.1);color:var(--amber);border:1px solid rgba(255,179,0,0.2)}
+.mt-d{background:rgba(255,61,90,0.1);color:var(--red);border:1px solid rgba(255,61,90,0.2)}
+
+/* ── BARS ── */
+.bar-item{margin-bottom:12px}.bar-item:last-child{margin-bottom:0}
+.bar-top{display:flex;justify-content:space-between;margin-bottom:5px}
+.bar-ep{color:var(--cyan);font-size:0.76rem}
+.bar-info{font-size:0.65rem;color:var(--grey)}
+.bar-track{height:5px;background:var(--raised);border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#0050d0,#00e5ff);box-shadow:0 0 8px rgba(0,229,255,0.35);transition:width 1s cubic-bezier(0.4,0,0.2,1)}
+
+/* ── TERMINAL ── */
+.term-line{font-size:0.7rem;color:var(--grey);padding:5px 0;border-bottom:1px solid rgba(21,37,68,0.35);display:flex;align-items:center;gap:8px}
+.term-line:last-child{border-bottom:none}
+.tl-p{color:var(--green2)}.tl-m{color:var(--cyan)}.tl-ok{color:var(--green)}.tl-err{color:var(--red)}
+
+/* ── UPTIME DISPLAY ── */
+.uptime-big{
+  font-family:var(--font-mono);font-size:1rem;font-weight:500;
+  color:var(--green);letter-spacing:0.5px;
+}
+.uptime-label{font-size:0.65rem;color:var(--grey);letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+
+/* ── COUNTER ANIMATION ── */
+.count-anim{transition:all 0.4s}
+
+/* ── FORM ── */
+.flabel{display:block;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--grey);margin-bottom:5px}
+input,textarea{
+  width:100%;background:var(--raised);border:1px solid var(--border);color:var(--white);
+  padding:9px 12px;border-radius:8px;font-family:var(--font-mono);font-size:0.8rem;
+  outline:none;transition:border-color 0.2s,box-shadow 0.2s;margin-bottom:10px;
+}
+input:focus,textarea:focus{border-color:var(--cyan2);box-shadow:0 0 0 3px rgba(0,229,255,0.06)}
+textarea{resize:vertical}
+.btn{padding:8px 16px;border-radius:8px;border:none;font-family:var(--font-mono);font-size:0.76rem;font-weight:700;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,#0050d0,#00b8d4);color:#fff;box-shadow:0 4px 15px rgba(0,80,200,0.3)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,80,200,0.5)}
+.btn-danger{background:rgba(255,61,90,0.1);color:var(--red);border:1px solid rgba(255,61,90,0.2)}
+.btn-danger:hover{background:rgba(255,61,90,0.18)}
+.btn-sm{padding:4px 10px;font-size:0.68rem}
+
+/* ── MESSAGE CARD ── */
+.msgcard{background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;transition:border-color 0.2s}
+.msgcard:hover{border-color:var(--border2)}
+.msg-who{font-size:0.76rem;font-weight:700;color:var(--cyan);margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.msg-who::before{content:'›';color:var(--grey)}
+.msg-body{font-size:0.8rem;line-height:1.5;color:var(--white)}
+.msg-ts{font-size:0.63rem;color:var(--grey);margin-top:5px}
+
+/* ── ARCH ── */
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;padding:24px 0}
+.fnode{background:var(--raised);border:1px solid var(--border2);border-radius:10px;padding:14px 18px;text-align:center;min-width:110px;transition:all 0.2s;cursor:default}
+.fnode:hover{border-color:var(--cyan);box-shadow:var(--glow-c);transform:translateY(-3px)}
+.fnode-ico{font-size:1.5rem;display:block;margin-bottom:5px}
+.fnode-name{font-family:var(--font-disp);font-weight:700;font-size:0.85rem;color:var(--cyan)}
+.fnode-port{font-size:0.62rem;color:var(--grey);margin-top:2px}
+.farrow{display:flex;flex-direction:column;align-items:center;color:var(--grey2);font-size:1.3rem;gap:2px}
+.farrow-lbl{font-size:0.6rem;color:var(--cyan2);background:rgba(0,229,255,0.07);padding:2px 6px;border-radius:4px;border:1px solid rgba(0,229,255,0.15)}
+
+/* ── CHECKLIST ── */
+.ck-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
+.ck-item{background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:flex-start;gap:8px;transition:border-color 0.2s}
+.ck-item:hover{border-color:var(--border2)}
+.ck-ico{font-size:0.9rem;flex-shrink:0;margin-top:1px}
+.ck-text{flex:1}
+.ck-name{font-size:0.75rem;font-weight:500;color:var(--white);margin-bottom:2px}
+.ck-desc{font-size:0.64rem;color:var(--grey);line-height:1.4}
+.ck-tag{font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0}
+.ck-tag.done{background:rgba(0,255,157,0.1);color:var(--green);border:1px solid rgba(0,255,157,0.2)}
+.ck-tag.bonus{background:rgba(255,179,0,0.1);color:var(--amber);border:1px solid rgba(255,179,0,0.2)}
+
+/* ── CODE BLOCK ── */
+.code-block{background:var(--void);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:var(--cyan)}
+.code-block .cm{color:var(--grey)}.code-block .ck2{color:var(--green)}.code-block .cv{color:var(--amber)}
+
+/* ── MEM BAR ── */
+.mem-track{height:8px;background:var(--raised);border-radius:999px;overflow:hidden;margin-top:8px}
+.mem-fill{height:100%;border-radius:999px;transition:width 0.8s}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border2);padding:10px 16px;border-radius:10px;font-size:0.75rem;display:none;z-index:999;box-shadow:0 8px 30px rgba(0,0,0,0.5);animation:slideUp 0.25s ease}
+@keyframes slideUp{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+.empty{color:var(--grey);text-align:center;padding:24px;font-size:0.78rem}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--void)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ═══ -->
+<header class="topbar">
+  <div class="tb-left">
+    <div class="tb-logo">🐳</div>
+    <div>
+      <div class="tb-brand">FiftyFive Technologies</div>
+      <div class="tb-tag">DevOps Command Center · Docker 3-Tier</div>
+    </div>
+  </div>
+  <div class="tb-right">
+    <div class="live-pill"><div class="pulse"></div><span id="nav-status">Connecting...</span></div>
+    <div class="clock-pill" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- ═══ LAYOUT ═══ -->
+<div class="layout">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar">
+    <div class="sb-section">
+      <div class="sb-label">Monitor</div>
+      <button class="sb-btn on" onclick="nav('dashboard',this)"><span class="sb-ico">▦</span> Dashboard</button>
+      <button class="sb-btn" onclick="nav('analytics',this)"><span class="sb-ico">◉</span> Analytics</button>
+      <button class="sb-btn" onclick="nav('system',this)"><span class="sb-ico">◎</span> System Info</button>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <div class="sb-label">Data</div>
+      <button class="sb-btn" onclick="nav('messages',this)"><span class="sb-ico">◈</span> Messages</button>
+      <button class="sb-btn" onclick="nav('arch',this)"><span class="sb-ico">◫</span> Architecture</button>
+      <button class="sb-btn" onclick="nav('docs',this)"><span class="sb-ico">◳</span> API Docs</button>
+    </div>
+    <div class="sb-divider"></div>
+
+    <!-- Live stats in sidebar -->
+    <div class="sb-section">
+      <div class="sb-label">Live Stats</div>
+      <div class="sb-stat">
+        <span class="sb-stat-label">API Hits</span>
+        <span class="sb-stat-val" style="color:var(--cyan)" id="sb-hits">--</span>
+      </div>
+      <div class="sb-stat">
+        <span class="sb-stat-label">Uptime</span>
+        <span class="sb-stat-val" style="color:var(--green)" id="sb-uptime">--</span>
+      </div>
+      <div class="sb-stat">
+        <span class="sb-stat-label">DB</span>
+        <span class="sb-stat-val" style="color:var(--green)" id="sb-db">--</span>
+      </div>
+      <div class="sb-stat">
+        <span class="sb-stat-label">Response</span>
+        <span class="sb-stat-val" style="color:var(--amber)" id="sb-resp">--ms</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ CONTENT ═══ -->
+  <main class="content">
+
+    <!-- ╔═══════════════════╗
+         ║    DASHBOARD      ║
+         ╚═══════════════════╝ -->
+    <div class="page on" id="page-dashboard">
+      <div class="page-title">▦ Dashboard</div>
+      <div class="page-sub">Real-time monitoring · Auto-refresh every 10s</div>
+
+      <div class="kpi-row">
+        <div class="kpi c">
+          <span class="kpi-ico">⚡</span>
+          <div class="kpi-lbl">Backend</div>
+          <div id="kpi-backend" class="badge wait">⏳ Checking</div>
+        </div>
+        <div class="kpi g">
+          <span class="kpi-ico">🗄️</span>
+          <div class="kpi-lbl">Database</div>
+          <div id="kpi-db" class="badge wait">⏳ Checking</div>
+        </div>
+        <div class="kpi c">
+          <span class="kpi-ico">📊</span>
+          <div class="kpi-lbl">Total API Hits</div>
+          <div class="kpi-val c" id="kpi-hits">--</div>
+          <div class="kpi-sub">Live · tracked in MySQL</div>
+        </div>
+        <div class="kpi g">
+          <span class="kpi-ico">⏱️</span>
+          <div class="kpi-lbl">App Uptime</div>
+          <!-- LIVE UPTIME — counts up every second -->
+          <div class="kpi-val g" id="kpi-uptime">--</div>
+          <div class="kpi-sub">Since container start</div>
+        </div>
+        <div class="kpi a">
+          <span class="kpi-ico">🔗</span>
+          <div class="kpi-lbl">DB Response</div>
+          <div class="kpi-val a" id="kpi-resp">--</div>
+          <div class="kpi-sub">milliseconds</div>
+        </div>
+        <div class="kpi p">
+          <span class="kpi-ico">🔄</span>
+          <div class="kpi-lbl">Retry Count</div>
+          <div class="kpi-val p" id="kpi-retry">--</div>
+          <div class="kpi-sub">connect attempts</div>
+        </div>
+      </div>
+
+      <div class="two">
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title"><div class="ph-dot"></div>Recent API Requests</div>
+            <div class="ph-meta" id="d-ts">--</div>
+          </div>
+          <div class="tw">
+            <table>
+              <thead><tr><th>#</th><th>Method</th><th>Endpoint</th><th>Status</th><th>When</th></tr></thead>
+              <tbody id="d-log"><tr><td colspan="5" class="empty">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph">
+            <div class="ph-title"><div class="ph-dot"></div>Endpoint Hit Distribution</div>
+          </div>
+          <div class="pb" id="d-bars"><div class="empty">Loading...</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">
+          <div class="ph-title"><div class="ph-dot"></div>Live Request Log</div>
+          <div class="ph-meta">terminal view</div>
+        </div>
+        <div class="pb" id="d-term"><div class="empty">Waiting...</div></div>
+      </div>
+    </div>
+
+    <!-- ╔═══════════════════╗
+         ║    ANALYTICS      ║
+         ╚═══════════════════╝ -->
+    <div class="page" id="page-analytics">
+      <div class="page-title">◉ Analytics</div>
+      <div class="page-sub">Full visit log from MySQL · SELECT * FROM visits</div>
+
+      <div class="kpi-row" style="margin-bottom:16px">
+        <div class="kpi c"><span class="kpi-ico">📊</span><div class="kpi-lbl">Total Requests</div><div class="kpi-val c" id="a-total">--</div></div>
+        <div class="kpi p"><span class="kpi-ico">🔗</span><div class="kpi-lbl">Unique Endpoints</div><div class="kpi-val p" id="a-ep">--</div></div>
+        <div class="kpi g"><span class="kpi-ico">✅</span><div class="kpi-lbl">Success Rate</div><div class="kpi-val g" id="a-sr">--</div><div class="kpi-sub">% HTTP 2xx</div></div>
+        <div class="kpi a"><span class="kpi-ico">⚡</span><div class="kpi-lbl">Avg Response</div><div class="kpi-val a" id="a-avg">--</div><div class="kpi-sub">ms</div></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Full Visit Log</div></div>
+        <div class="tw">
+          <table>
+            <thead><tr><th>#</th><th>Method</th><th>Endpoint</th><th>Status</th><th>Response</th><th>IP</th><th>Timestamp</th></tr></thead>
+            <tbody id="a-log"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ╔═══════════════════╗
+         ║    SYSTEM INFO    ║
+         ╚═══════════════════╝ -->
+    <div class="page" id="page-system">
+      <div class="page-title">◎ System Info</div>
+      <div class="page-sub">Live container & host metrics</div>
+      <div class="kpi-row" id="sys-kpis"><div class="empty">Loading...</div></div>
+      <div class="two">
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Memory Usage</div><div class="ph-meta" id="sys-mp">--</div></div>
+          <div class="pb">
+            <div style="font-size:0.7rem;color:var(--grey);margin-bottom:6px" id="sys-mt"></div>
+            <div class="mem-track"><div class="mem-fill" id="sys-mb" style="width:0%"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.62rem;color:var(--grey2)">
+              <span>0 MB</span><span id="sys-mmax">--</span>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Container Environment</div></div>
+          <div class="pb" id="sys-env"><div class="empty">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ╔═══════════════════╗
+         ║    MESSAGES       ║
+         ╚═══════════════════╝ -->
+    <div class="page" id="page-messages">
+      <div class="page-title">◈ Messages</div>
+      <div class="page-sub">Full CRUD — INSERT · SELECT · DELETE from MySQL</div>
+      <div class="two">
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>POST /messages </div></div>
+          <div class="pb">
+            <label class="flabel">Author</label>
+            <input type="text" id="m-author" placeholder="your name..."/>
+            <label class="flabel">Message</label>
+            <textarea id="m-body" rows="3" placeholder="write message..."></textarea>
+            <button class="btn btn-primary" onclick="postMsg()">▶ Execute INSERT</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>SELECT * FROM messages</div><div class="ph-meta" id="m-count">-- rows</div></div>
+          <div class="pb" id="m-list"><div class="empty">No records</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ╔═══════════════════╗
+         ║   ARCHITECTURE    ║
+         ╚═══════════════════╝ -->
+    <div class="page" id="page-arch">
+      <div class="page-title">◫ Architecture</div>
+      <div class="page-sub">Service communication flow · Docker network topology</div>
+      <div class="panel">
+        <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Service Flow</div></div>
+        <div class="pb">
+          <div class="flow">
+            <div class="fnode"><span class="fnode-ico">🌐</span><div class="fnode-name">Browser</div><div class="fnode-port">User Interface</div></div>
+            <div class="farrow"><span>→</span></div>
+            <div class="fnode"><span class="fnode-ico">⚡</span><div class="fnode-name">Nginx :80</div><div class="fnode-port">Reverse Proxy</div></div>
+            <div class="farrow"><span>→</span><span class="farrow-lbl">/api/*</span></div>
+            <div class="fnode"><span class="fnode-ico">🟢</span><div class="fnode-name">Node.js :3000</div><div class="fnode-port">REST API</div></div>
+            <div class="farrow"><span>→</span><span class="farrow-lbl">mysql2</span></div>
+            <div class="fnode"><span class="fnode-ico">🗄️</span><div class="fnode-name">MySQL :3306</div><div class="fnode-port">Persistent DB</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="two">
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Docker Services</div></div>
+          <div class="tw"><table>
+            <thead><tr><th>Service</th><th>Image</th><th>Port</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td>frontend</td><td class="td-ep">nginx:alpine</td><td class="td-ok">80</td><td>Proxy + Static</td></tr>
+              <tr><td>backend</td><td class="td-ep">node:alpine</td><td class="td-ok">3000</td><td>REST API</td></tr>
+              <tr><td>db</td><td class="td-ep">mysql:8.0</td><td class="td-ok">3306</td><td>Database</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>MySQL Tables</div></div>
+          <div class="tw"><table>
+            <thead><tr><th>Table</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td class="td-ep">visits</td><td>API request log with method, status, response time</td></tr>
+              <tr><td class="td-ep">messages</td><td>CRUD demo — author + content</td></tr>
+              <tr><td class="td-ep">metrics</td><td>CPU & memory recorded every 30s</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Requirements Checklist</div></div>
+        <div class="pb">
+          <div class="ck-grid">
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Startup Dependency</div><div class="ck-desc">depends_on service_healthy + retry logic</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Dynamic Frontend Config</div><div class="ck-desc">nginx.conf.template + envsubst</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Health Checks — All 3</div><div class="ck-desc">Backend, MySQL, Frontend</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Logging to stdout</div><div class="ck-desc">All via docker compose logs -f</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Named Volume</div><div class="ck-desc">mysql-data for persistence</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Custom Network</div><div class="ck-desc">app-network, service name DNS</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">All Config via .env</div><div class="ck-desc">.env.example committed, .env ignored</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Real DB Queries</div><div class="ck-desc">3 tables, INSERT/SELECT/DELETE</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">⭐</div><div class="ck-text"><div class="ck-name">Multi-stage Builds</div><div class="ck-desc">Builder + Final stage, Dockerfile</div></div><span class="ck-tag bonus">BONUS</span></div>
+            <div class="ck-item"><div class="ck-ico">⭐</div><div class="ck-text"><div class="ck-name">Non-root USER</div><div class="ck-desc">appuser in backend container</div></div><span class="ck-tag bonus">BONUS</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Failure Handling</div><div class="ck-desc">Auto reconnect ~15s recovery</div></div><span class="ck-tag done">DONE</span></div>
+            <div class="ck-item"><div class="ck-ico">✅</div><div class="ck-text"><div class="ck-name">Alpine Images Only</div><div class="ck-desc">nginx:alpine, node:alpine, mysql:8.0</div></div><span class="ck-tag done">DONE</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ╔═══════════════════╗
+         ║    API DOCS       ║
+         ╚═══════════════════╝ -->
+    <div class="page" id="page-docs">
+      <div class="page-title">◳ API Docs</div>
+      <div class="page-sub">All REST endpoints with sample responses</div>
+      <div class="three">
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Core</div></div>
+          <div class="tw"><table>
+            <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
+            <tbody>
+              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/</td><td>Status</td></tr>
+              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/health</td><td>DB health</td></tr>
+              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/system</td><td>System info</td></tr>
+              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/metrics</td><td>CPU/mem history</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Visits</div></div>
+          <div class="tw"><table>
+            <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
+            <tbody>
+              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/visits</td><td>Total count</td></tr>
+              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/visits/log</td><td>History</td></tr>
+              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/visits/stats</td><td>Per-endpoint</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Messages CRUD</div></div>
+          <div class="tw"><table>
+            <thead><tr><th>Method</th><th>Path</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/messages</td><td>SELECT *</td></tr>
+              <tr><td><span class="mt mt-p">POST</span></td><td class="td-ep">/messages</td><td>INSERT</td></tr>
+              <tr><td><span class="mt mt-d">DEL</span></td><td class="td-ep">/messages/:id</td><td>DELETE</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="two">
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>GET /health — Response</div></div>
+          <div class="pb"><div class="code-block">
+{<br>
+&nbsp;&nbsp;<span class="cv">"status"</span>: <span class="ck2">"ok"</span>,<br>
+&nbsp;&nbsp;<span class="cv">"db"</span>: <span class="ck2">"connected"</span>,<br>
+&nbsp;&nbsp;<span class="cv">"app_uptime_seconds"</span>: <span class="ck2">1252</span>,<br>
+&nbsp;&nbsp;<span class="cv">"response_time_ms"</span>: <span class="ck2">4</span>,<br>
+&nbsp;&nbsp;<span class="cv">"connection_attempts"</span>: <span class="ck2">3</span><br>
+}
+          </div></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>POST /messages — Body</div></div>
+          <div class="pb"><div class="code-block">
+<span class="cm"># Request</span><br>
+{<br>
+&nbsp;&nbsp;<span class="cv">"author"</span>: <span class="ck2">"Vishnu"</span>,<br>
+&nbsp;&nbsp;<span class="cv">"content"</span>: <span class="ck2">"Hello FiftyFive!"</span><br>
+}<br><br>
+<span class="cm"># Response 201</span><br>
+{ <span class="cv">"status"</span>: <span class="ck2">"ok"</span>, <span class="cv">"id"</span>: <span class="ck2">5</span> }
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div><!-- /layout -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════
+
+/** Live clock */
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+}, 1000);
+
+/** Sidebar navigation */
+function nav(name, el) {
+  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('page-' + name).classList.add('on');
+  if (name === 'messages')  loadMessages();
+  if (name === 'analytics') loadAnalytics();
+  if (name === 'system')    loadSystem();
+}
+
+/** Toast notification */
+function toast(msg, color = 'var(--green)') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.color = color;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+/** Method badge HTML */
+function mTag(m) {
+  const c = m==='GET'?'mt-g':m==='POST'?'mt-p':'mt-d';
+  return `<span class="mt ${c}">${m}</span>`;
+}
+
+/** Format timestamps */
+const fmtT  = ts => new Date(ts).toLocaleTimeString();
+const fmtDT = ts => new Date(ts).toLocaleString();
+
+// ═══════════════════════════════════════════════
+// LIVE UPTIME COUNTER
+// Counts up every second from the server uptime
+// ═══════════════════════════════════════════════
+let uptimeBase = 0;       // seconds from server
+let uptimeStart = null;   // local Date when we got it
+
+function startUptimeTicker(serverSeconds) {
+  uptimeBase  = serverSeconds;
+  uptimeStart = Date.now();
+}
+
+function formatUptime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m ${sec}s`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+// Tick every second — makes uptime count live
+setInterval(() => {
+  if (!uptimeStart) return;
+  const elapsed = Math.floor((Date.now() - uptimeStart) / 1000);
+  const current = uptimeBase + elapsed;
+  document.getElementById('kpi-uptime').textContent = formatUptime(current);
+  document.getElementById('sb-uptime').textContent  = formatUptime(current);
+}, 1000);
+
+// ═══════════════════════════════════════════════
+// ANIMATED COUNTER — numbers count up visually
+// ═══════════════════════════════════════════════
+function animateCount(el, target) {
+  const start = parseInt(el.textContent) || 0;
+  if (start === target) return;
+  const diff = target - start;
+  const steps = 20;
+  let step = 0;
+  const timer = setInterval(() => {
+    step++;
+    el.textContent = Math.round(start + (diff * step / steps));
+    if (step >= steps) { el.textContent = target; clearInterval(timer); }
+  }, 30);
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════
+async function loadDashboard() {
+
+  // 1. Backend status
+  try {
+    const d = await fetch('/api/').then(r => r.json());
+    document.getElementById('kpi-backend').className   = 'badge ok';
+    document.getElementById('kpi-backend').textContent = '✅ v' + d.version;
+    document.getElementById('nav-status').textContent  = 'All systems operational';
+  } catch {
+    document.getElementById('kpi-backend').className   = 'badge err';
+    document.getElementById('kpi-backend').textContent = '❌ Offline';
+    document.getElementById('nav-status').textContent  = 'Backend unreachable';
+    // Also mark DB as unknown when backend is down
+    document.getElementById('kpi-db').className    = 'badge wait';
+    document.getElementById('kpi-db').textContent  = '⏳ Unknown';
+    document.getElementById('sb-db').textContent   = '⏳ Unknown';
+  }
+
+  // 2. DB health + uptime
+  try {
+    const d = await fetch('/api/health').then(r => r.json());
+    const ok = d.status === 'ok';
+    document.getElementById('kpi-db').className    = 'badge ' + (ok ? 'ok' : 'err');
+    document.getElementById('kpi-db').textContent  = ok ? '✅ Connected' : '❌ ' + d.db;
+    document.getElementById('kpi-resp').textContent   = d.response_time_ms   ?? '--';
+    document.getElementById('kpi-retry').textContent  = d.connection_attempts ?? '--';
+    document.getElementById('sb-db').textContent      = ok ? '✅ OK' : '❌ Down';
+    document.getElementById('sb-resp').textContent    = (d.response_time_ms ?? '--') + 'ms';
+    // Start live uptime ticker
+    if (d.app_uptime_seconds) startUptimeTicker(d.app_uptime_seconds);
+  } catch {}
+
+  // 3. Visit count with animated counter
+  try {
+    const d = await fetch('/api/visits').then(r => r.json());
+    const el = document.getElementById('kpi-hits');
+    animateCount(el, d.total_visits);
+    document.getElementById('sb-hits').textContent = d.total_visits;
+  } catch {}
+
+  // 4. Recent log table
+  try {
+    const d = await fetch('/api/visits/log?limit=10').then(r => r.json());
+    document.getElementById('d-ts').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    document.getElementById('d-log').innerHTML = d.recent_visits.length
+      ? d.recent_visits.map(v => `
+          <tr>
+            <td class="td-id">${v.id}</td>
+            <td>${mTag(v.method)}</td>
+            <td class="td-ep">${v.endpoint}</td>
+            <td class="${v.status_code<400?'td-ok':'td-err'}">${v.status_code}</td>
+            <td class="td-t">${fmtT(v.visited_at)}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="5" class="empty">No visits yet</td></tr>';
+
+    // Terminal-style live log
+    document.getElementById('d-term').innerHTML = d.recent_visits.slice(0,8).map(v=>`
+      <div class="term-line">
+        <span class="tl-p">$</span>
+        <span class="tl-m">${v.method}</span>
+        <span class="td-ep">${v.endpoint}</span>
+        <span class="${v.status_code<400?'tl-ok':'tl-err'}">[${v.status_code}]</span>
+        <span class="td-t">${v.response_time_ms}ms · ${fmtT(v.visited_at)}</span>
+      </div>`).join('') || '<div class="empty">No activity</div>';
+  } catch {}
+
+  // 5. Hit distribution bars
+  try {
+    const d = await fetch('/api/visits/stats').then(r => r.json());
+    if (!d.stats.length) { document.getElementById('d-bars').innerHTML='<div class="empty">No data</div>'; return; }
+    const max = Math.max(...d.stats.map(s=>s.hits));
+    document.getElementById('d-bars').innerHTML = d.stats.map(s=>`
+      <div class="bar-item">
+        <div class="bar-top">
+          <span class="bar-ep">${s.endpoint}</span>
+          <span class="bar-info">${s.hits} hits · ${Math.round(s.avg_ms)}ms avg</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${(s.hits/max*100).toFixed(1)}%"></div>
+        </div>
+      </div>`).join('');
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════
+// MESSAGES CRUD
+// ═══════════════════════════════════════════════
+async function loadMessages() {
+  try {
+    const d = await fetch('/api/messages').then(r => r.json());
+    document.getElementById('m-count').textContent = d.count + ' rows';
+    document.getElementById('m-list').innerHTML = d.messages.length
+      ? d.messages.map(m=>`
+          <div class="msgcard">
+            <div style="flex:1">
+              <div class="msg-who">${m.author}</div>
+              <div class="msg-body">${m.content}</div>
+              <div class="msg-ts">${fmtDT(m.created_at)}</div>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="deleteMsg(${m.id})">DELETE</button>
+          </div>`).join('')
+      : '<div class="empty">No rows in messages table</div>';
+  } catch { document.getElementById('m-list').innerHTML='<div class="empty">Query failed</div>'; }
+}
+
+async function postMsg() {
+  const author  = document.getElementById('m-author').value.trim();
+  const content = document.getElementById('m-body').value.trim();
+  if (!author||!content) { toast('⚠️ Fill both fields','var(--amber)'); return; }
+  try {
+    const d = await fetch('/api/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({author,content})
+    }).then(r=>r.json());
+    if (d.status==='ok') {
+      toast('✅ Row inserted (id='+d.id+')');
+      document.getElementById('m-author').value='';
+      document.getElementById('m-body').value='';
+      loadMessages();
+    }
+  } catch { toast('❌ INSERT failed','var(--red)'); }
+}
+
+async function deleteMsg(id) {
+  try {
+    const d = await fetch('/api/messages/'+id,{method:'DELETE'}).then(r=>r.json());
+    if (d.status==='ok') { toast('🗑 Row deleted (id='+id+')'); loadMessages(); }
+  } catch { toast('❌ DELETE failed','var(--red)'); }
+}
+
+// ═══════════════════════════════════════════════
+// ANALYTICS
+// ═══════════════════════════════════════════════
+async function loadAnalytics() {
+  try {
+    const d      = await fetch('/api/visits/log?limit=200').then(r=>r.json());
+    const visits = d.recent_visits;
+    const eps    = [...new Set(visits.map(v=>v.endpoint))];
+    const ok     = visits.filter(v=>v.status_code<400).length;
+    const avgMs  = visits.length ? (visits.reduce((s,v)=>s+v.response_time_ms,0)/visits.length).toFixed(1) : '--';
+    document.getElementById('a-total').textContent = d.count;
+    document.getElementById('a-ep').textContent    = eps.length;
+    document.getElementById('a-sr').textContent    = visits.length ? ((ok/visits.length)*100).toFixed(1)+'%' : '--';
+    document.getElementById('a-avg').textContent   = avgMs+'ms';
+    document.getElementById('a-log').innerHTML = visits.map(v=>`
+      <tr>
+        <td class="td-id">${v.id}</td>
+        <td>${mTag(v.method)}</td>
+        <td class="td-ep">${v.endpoint}</td>
+        <td class="${v.status_code<400?'td-ok':'td-err'}">${v.status_code}</td>
+        <td class="td-t">${v.response_time_ms}ms</td>
+        <td class="td-t">${v.ip_address||'—'}</td>
+        <td class="td-t">${fmtDT(v.visited_at)}</td>
+      </tr>`).join('') || '<tr><td colspan="7" class="empty">No data</td></tr>';
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════
+// SYSTEM
+// ═══════════════════════════════════════════════
+async function loadSystem() {
+  try {
+    const d = await fetch('/api/system').then(r=>r.json());
+    document.getElementById('sys-kpis').innerHTML = `
+      <div class="kpi c"><span class="kpi-ico">🖥️</span><div class="kpi-lbl">Hostname</div><div class="kpi-val c" style="font-size:0.85rem">${d.hostname}</div></div>
+      <div class="kpi p"><span class="kpi-ico">💻</span><div class="kpi-lbl">Platform</div><div class="kpi-val p" style="font-size:1rem">${d.platform}/${d.arch}</div></div>
+      <div class="kpi g"><span class="kpi-ico">⚙️</span><div class="kpi-lbl">CPU Cores</div><div class="kpi-val g">${d.cpu_cores}</div></div>
+      <div class="kpi a"><span class="kpi-ico">📈</span><div class="kpi-lbl">CPU Load</div><div class="kpi-val a">${d.cpu_load_1m}</div></div>
+      <div class="kpi c"><span class="kpi-ico">🟢</span><div class="kpi-lbl">Node.js</div><div class="kpi-val c" style="font-size:0.95rem">${d.node_version}</div></div>
+      <div class="kpi g"><span class="kpi-ico">⏱️</span><div class="kpi-lbl">App Uptime</div><div class="kpi-val g">${d.app_uptime_seconds}s</div></div>`;
+    const pct = parseFloat(d.memory.percent);
+    document.getElementById('sys-mp').textContent  = d.memory.percent;
+    document.getElementById('sys-mt').textContent  = `${d.memory.used_mb} MB used of ${d.memory.total_mb} MB`;
+    document.getElementById('sys-mmax').textContent= d.memory.total_mb+' MB';
+    document.getElementById('sys-mb').style.width  = pct+'%';
+    document.getElementById('sys-mb').style.background =
+      pct>80?'linear-gradient(90deg,#cc0033,#ff3d5a)':
+      pct>60?'linear-gradient(90deg,#cc7700,#ffb300)':
+             'linear-gradient(90deg,#0050d0,#00e5ff)';
+    document.getElementById('sys-env').innerHTML=`
+      <table>
+        <tr><td class="td-t" style="padding:7px 0">Container ID</td><td class="td-ep">${d.hostname}</td></tr>
+        <tr><td class="td-t" style="padding:7px 0">OS / Arch</td><td>${d.platform} / ${d.arch}</td></tr>
+        <tr><td class="td-t" style="padding:7px 0">Node.js</td><td class="td-ok">${d.node_version}</td></tr>
+        <tr><td class="td-t" style="padding:7px 0">CPU Cores</td><td>${d.cpu_cores}</td></tr>
+        <tr><td class="td-t" style="padding:7px 0">CPU Load</td><td class="td-ok">${d.cpu_load_1m}</td></tr>
+        <tr><td class="td-t" style="padding:7px 0">App Uptime</td><td class="td-ep">${d.app_uptime_seconds}s</td></tr>
+      </table>`;
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════
+// INIT — start loading, refresh every 10 seconds
+// ═══════════════════════════════════════════════
+loadDashboard();
+setInterval(loadDashboard, 10000);
+</script>
+</body>
+</html>
