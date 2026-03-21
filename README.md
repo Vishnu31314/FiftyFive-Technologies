@@ -1,134 +1,167 @@
-# Docker 3-Tier App — FiftyFive Technologies
-**DevOps Intern Assignment | Vishnu Jangid**
+# FiftyFive Technologies -- Docker 3-Tier Application
+**DevOps Intern Assignment**
+
+--- 
+## What I Made 
+
+I used Docker to create a three-tier application. It uses MySQL as the database, Node.js as the backend API, and Nginx as the frontend. Each of the three operates in a different container and communicates with the others via a Docker network. 
+
+In order to keep an eye on everything, including API hits, uptime, system information, and a messaging feature that does actual database transactions, I also created a live dashboard. 
 
 ---
 
-## What I Made
+## 1. Setup Instruction
 
-I built a 3-tier app using Docker. It has Nginx as frontend, Node.js as backend API, and MySQL as database. All 3 run in separate containers and talk to each other through a Docker network.
+First make sure Docker Desktop is open and running on system.
 
-I also made a live dashboard to monitor everything — API hits, uptime, system info, and a messages feature that does real database operations.
-
----
-
-## 1. How to Run
-
-Make sure Docker Desktop is running, then:
+Then run this commands:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/fiftyfix-devops.git
-cd fiftyfix-devops
+git clone https://github.com/Vishnu31314/FiftyFive-Technologies.git
+cd FiftyFive-Technologies
 cp .env.example .env
 docker compose up --build
 ```
 
-Then open `http://localhost` in browser. That's it.
+Then open browser and go to http://localhost.
 
 ---
 
 ## 2. Architecture
 
 ```
-Browser
-  |
-  v
-Nginx :80        → serves the HTML page
-  |                 proxies /api/* to backend
-  v
-Node.js :3000    → handles API requests, talks to DB
-  |
-  v
-MySQL :3306      → stores data in named volume
+  [ Browser ] 
+       |
+       v
+  [Nginx :80]  →  #serves the HTML page to browser &
+       |           forwards /api/* request to backend
+       v
+ [Node.js :3000]  →  #handles all API requests & read and write to db
+       |
+       v 
+  [MySQL :3306]  →  #stores all data in named volume
+                     (data stay after restart)
 ```
+All 3 services are on same Docker network called 'app-network'.
+They talk each other using service names instead IP addresses.
 
-I used a custom Docker network called `app-network`. Because of this,
-containers find each other by name — backend connects to `db:3306`
-instead of an IP address. This is cleaner and works even if IPs change.
 
-| Service  | Image        | Port | What it does            |
-|----------|--------------|------|-------------------------|
-| frontend | nginx:alpine | 80   | HTML page + proxy       |
-| backend  | node:alpine  | 3000 | API + DB queries        |
-| db       | mysql:8.0    | 3306 | Stores all the data     |
-
----
-
-## 3. Key Implementation Details
-
-**Backend waiting for MySQL**
-
-I used `depends_on` with `condition: service_healthy` so backend only
-starts after MySQL passes health check. But that alone wasn't enough —
-MySQL passes the health check before it's fully ready for connections.
-So I also wrote a `connectWithRetry()` function that keeps trying every
-5 seconds until it connects successfully.
-
-**Nginx getting backend URL dynamically**
-
-I didn't hardcode the URL in nginx config. Instead I have a file
-`nginx.conf.template` with `${BACKEND_URL}` in it. When container starts,
-nginx:alpine runs `envsubst` automatically and replaces the variable with
-actual value from `.env` file.
-
-**Service communication**
-
-All containers are on `app-network`. Docker handles DNS so they reach
-each other by service name. No hardcoded IPs anywhere in the project.
+| Tier     | Image        | Port | Role                                 |
+|----------|--------------|------|--------------------------------------|
+| Frontend | nginx:alpine | 80   | Static HTML + proxy /api → backend   |
+| Backend  | node:alpine  | 3000 | REST API, DB queries, health endpoint|
+| Database | mysql:8.0    | 3306 | stores all data in name volumes      |
 
 ---
 
-## 4. Testing
+## 3. Explanation
+
+**How backend waits for MySql**
+
+I used 'depends_on' with 'condition: service_healthy' in 'Docker-compose.yml'. This makes backend wait until MySQL passes its health check before starting.
+But just 'depends_on' is not enough because MySQL can pass health check before it fully accepts connections. So I also wrote a 'connectWithRetry()' function that tries to connect every 5 seconds until it connects successfully.
+This way backend never crashes permanently even if MySQL takes time.
+
+**How Nginx gets backend URL dynamically**
+
+I did not hardcode the backend URL in nginx config file. Instead I made a file 'nginx.conf.template' that has '${BACKEND_URL}' written in it.
+When the container starts nginx automatically runs envsubst command which reads the '.env' files and replaces '${BACKEND_URL}' with actual value. So the URL always  comes from environment variable not from the code.
+
+**How services communicate**
+
+All containers are connected to a custom bridge network on 'app-network'. Docker has build-in DNS for this so containers find each other by name.
+Backend connects to database & Frontend connects to backend using hostname db backend not an IP address.
+
+---
+
+## 4.Testing Steps
+
+**How to access Frontend**
+
+Open any browser and type:
+```bash
+http://loacalhost
+```
+You will see the live dashboard with all features and stats.
+
+**How to hit API via Nginx proxy**
 
 ```bash
-# open dashboard
-http://localhost
-
-# test API through nginx
+# check if backend is running
 curl http://localhost/api/
+
+# check database connection
 curl http://localhost/api/health
+
+# see total visits stored in MySQL
 curl http://localhost/api/visits
+
+# see recent request history
 curl http://localhost/api/visits/log
+
+# get all messages from database
 curl http://localhost/api/messages
 
-# post a message to MySQL
+# add a new message to database
 curl -X POST http://localhost/api/messages \
   -H "Content-Type: application/json" \
-  -d '{"author":"Vishnu","content":"hello"}'
+  -d '{"author":"Vishnu","content":"Hello FiftyFive"}'
 
-# see all logs
+# watch live logs of all 3 services
 docker compose logs -f
-
-# see container status
-docker compose ps
 ```
 
 ---
 
-## 5. What Happens When MySQL Restarts
+## 5. Failure Scenario
 
+**How to test MySQL restart**
 ```bash
 docker restart fiftyfix-devops-db-1
 ```
 
-Here's what I observed when I tested this:
+**What happens to backend**
 
-- MySQL stops → backend immediately gets a connection error
-- `/health` endpoint returns 500 for a few seconds
-- My retry function kicks in, tries reconnecting every 5 seconds
-- MySQL comes back up, backend reconnects on next attempt
-- Everything back to normal in about 10-15 seconds
+When MySQL container stops the backend immediatily loses its db connection. The /health endpoint returning error 500 with msg db unreachable. Backend does not crash but just cannot talk to database temporarily.
 
-The key thing I learned — you can't reuse a dead connection object.
-You have to create a completely new `mysql.createConnection()` on each
-retry. That's why my `connectWithRetry()` calls `db.destroy()` first
-and then creates a fresh connection.
+**How it recovers**
+
+I wrote a 'connectWithRetry' function in app.js that handles this. When connention is lost the error handler catches it automatically.
+Then it waits 5 seconds and tries to reconnection. It keeps retrying every 5 seconds until MySQL comes back online.
+
+**Recovery time**
+
+In my testing recovery takes around 10 to 15 seconds after MySQL restarts.
+
+**How I handled it**
+
+-connectWithRetry() creates fresh connection on every retry attempt
+-db.on('error') catches PROTOCOL_CONNECTION_LOST automatically
+-restart: unless-stopped in docker-compose.yml recovers crashed containers
+-/health endpoint returns proper error message during downtime
 
 ---
 
-## Project Structure
+## 6. Bonus Features
+
+**Multi-stage Docker build**
+
+Backend Dockerfile has two stages. First stage installs all npm packages.
+Second stage copies only the application files and node_modules.
+This keeps final image size smaller and cleaner.
+
+**Non-root user**
+
+In backend Dockerfile I created a user called appuser.
+The Node.js process runs as appuser not as root.
+Running containers as root is a security risk so this is better practice.
+
+---
+
+## 7. Project Structure
 
 ```
-fiftyfix-devops/
+FiftyFive-Technologies/
 ├── frontend/
 │   ├── Dockerfile
 │   ├── nginx.conf.template
@@ -147,52 +180,13 @@ fiftyfix-devops/
 
 ---
 
-## API Endpoints
-
-| Method | Path            | What it returns                  |
-|--------|-----------------|----------------------------------|
-| GET    | /               | status and version               |
-| GET    | /health         | DB connection status and uptime  |
-| GET    | /visits         | total request count from MySQL   |
-| GET    | /visits/log     | last N requests with details     |
-| GET    | /visits/stats   | grouped hits per endpoint        |
-| GET    | /messages       | all messages from DB             |
-| POST   | /messages       | save new message to DB           |
-| DELETE | /messages/:id   | delete message by id             |
-| GET    | /metrics        | CPU and memory history           |
-| GET    | /system         | live container system info       |
-
----
-
-## Database Tables
-
-I created 3 tables in MySQL:
-
-- **visits** — logs every API request (method, endpoint, status, response time, IP)
-- **messages** — stores messages posted through the UI (author, content)
-- **metrics** — records CPU load and memory usage every 30 seconds automatically
-
----
-
-## Bonus Features Done
-
-**Multi-stage build** — backend Dockerfile has a builder stage that
-installs npm packages, then a final stage that only copies what's needed.
-Keeps the image smaller.
-
-**Non-root user** — I created a user called `appuser` in the Dockerfile
-and the container runs as that user. Running as root in containers is
-a security risk so this is the right way to do it.
-
----
-
-## Environment Setup
-
+## 8. Environment Setup
+ 
 ```bash
 cp .env.example .env
 ```
 
-Fill in `.env` with your passwords. Never commit `.env` — it's in `.gitignore`.
+Copy .env.example to .env and fill your values:
 
 ```
 MYSQL_ROOT_PASSWORD=yourpassword
@@ -200,3 +194,6 @@ MYSQL_DATABASE=appdb
 MYSQL_USER=appuser
 MYSQL_PASSWORD=yourpassword
 ```
+Never commit .env file. It is already added to .gitignore.
+
+---

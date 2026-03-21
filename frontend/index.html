@@ -270,7 +270,6 @@ textarea{resize:vertical}
       <div class="sb-label">Data</div>
       <button class="sb-btn" onclick="nav('messages',this)"><span class="sb-ico">◈</span> Messages</button>
       <button class="sb-btn" onclick="nav('arch',this)"><span class="sb-ico">◫</span> Architecture</button>
-      <button class="sb-btn" onclick="nav('docs',this)"><span class="sb-ico">◳</span> API Docs</button>
     </div>
     <div class="sb-divider"></div>
 
@@ -512,84 +511,14 @@ textarea{resize:vertical}
       </div>
     </div>
 
-    <!-- ╔═══════════════════╗
-         ║    API DOCS       ║
-         ╚═══════════════════╝ -->
-    <div class="page" id="page-docs">
-      <div class="page-title">◳ API Docs</div>
-      <div class="page-sub">All REST endpoints with sample responses</div>
-      <div class="three">
-        <div class="panel">
-          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Core</div></div>
-          <div class="tw"><table>
-            <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
-            <tbody>
-              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/</td><td>Status</td></tr>
-              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/health</td><td>DB health</td></tr>
-              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/system</td><td>System info</td></tr>
-              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/metrics</td><td>CPU/mem history</td></tr>
-            </tbody>
-          </table></div>
-        </div>
-        <div class="panel">
-          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Visits</div></div>
-          <div class="tw"><table>
-            <thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
-            <tbody>
-              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/visits</td><td>Total count</td></tr>
-              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/visits/log</td><td>History</td></tr>
-              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/visits/stats</td><td>Per-endpoint</td></tr>
-            </tbody>
-          </table></div>
-        </div>
-        <div class="panel">
-          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>Messages CRUD</div></div>
-          <div class="tw"><table>
-            <thead><tr><th>Method</th><th>Path</th><th>Action</th></tr></thead>
-            <tbody>
-              <tr><td><span class="mt mt-g">GET</span></td><td class="td-ep">/messages</td><td>SELECT *</td></tr>
-              <tr><td><span class="mt mt-p">POST</span></td><td class="td-ep">/messages</td><td>INSERT</td></tr>
-              <tr><td><span class="mt mt-d">DEL</span></td><td class="td-ep">/messages/:id</td><td>DELETE</td></tr>
-            </tbody>
-          </table></div>
-        </div>
-      </div>
-      <div class="two">
-        <div class="panel">
-          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>GET /health — Response</div></div>
-          <div class="pb"><div class="code-block">
-{<br>
-&nbsp;&nbsp;<span class="cv">"status"</span>: <span class="ck2">"ok"</span>,<br>
-&nbsp;&nbsp;<span class="cv">"db"</span>: <span class="ck2">"connected"</span>,<br>
-&nbsp;&nbsp;<span class="cv">"app_uptime_seconds"</span>: <span class="ck2">1252</span>,<br>
-&nbsp;&nbsp;<span class="cv">"response_time_ms"</span>: <span class="ck2">4</span>,<br>
-&nbsp;&nbsp;<span class="cv">"connection_attempts"</span>: <span class="ck2">3</span><br>
-}
-          </div></div>
-        </div>
-        <div class="panel">
-          <div class="ph"><div class="ph-title"><div class="ph-dot"></div>POST /messages — Body</div></div>
-          <div class="pb"><div class="code-block">
-<span class="cm"># Request</span><br>
-{<br>
-&nbsp;&nbsp;<span class="cv">"author"</span>: <span class="ck2">"Vishnu"</span>,<br>
-&nbsp;&nbsp;<span class="cv">"content"</span>: <span class="ck2">"Hello FiftyFive!"</span><br>
-}<br><br>
-<span class="cm"># Response 201</span><br>
-{ <span class="cv">"status"</span>: <span class="ck2">"ok"</span>, <span class="cv">"id"</span>: <span class="ck2">5</span> }
-          </div></div>
-        </div>
-      </div>
-    </div>
-
   </main>
 </div><!-- /layout -->
 <div id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════
+// ==================================================
 // UTILITIES
-// ═══════════════════════════════════════════════
+// ==================================================
 
 /** Live clock */
 setInterval(() => {
@@ -625,10 +554,10 @@ function mTag(m) {
 const fmtT  = ts => new Date(ts).toLocaleTimeString();
 const fmtDT = ts => new Date(ts).toLocaleString();
 
-// ═══════════════════════════════════════════════
+// ==================================================
 // LIVE UPTIME COUNTER
 // Counts up every second from the server uptime
-// ═══════════════════════════════════════════════
+// ==================================================
 let uptimeBase = 0;       // seconds from server
 let uptimeStart = null;   // local Date when we got it
 
@@ -646,7 +575,7 @@ function formatUptime(s) {
   return `${sec}s`;
 }
 
-// Tick every second — makes uptime count live
+// Tick every second — makes uptime live
 setInterval(() => {
   if (!uptimeStart) return;
   const elapsed = Math.floor((Date.now() - uptimeStart) / 1000);
@@ -655,9 +584,9 @@ setInterval(() => {
   document.getElementById('sb-uptime').textContent  = formatUptime(current);
 }, 1000);
 
-// ═══════════════════════════════════════════════
-// ANIMATED COUNTER — numbers count up visually
-// ═══════════════════════════════════════════════
+// ==================================================
+// ANIMATED COUNTER - numbers count up visually
+// ==================================================
 function animateCount(el, target) {
   const start = parseInt(el.textContent) || 0;
   if (start === target) return;
@@ -671,9 +600,9 @@ function animateCount(el, target) {
   }, 30);
 }
 
-// ═══════════════════════════════════════════════
+// ==================================================
 // DASHBOARD
-// ═══════════════════════════════════════════════
+// ==================================================
 async function loadDashboard() {
 
   // 1. Backend status
@@ -684,9 +613,9 @@ async function loadDashboard() {
     document.getElementById('nav-status').textContent  = 'All systems operational';
   } catch {
     document.getElementById('kpi-backend').className   = 'badge err';
-    document.getElementById('kpi-backend').textContent = '❌ Offline';
+    document.getElementById('kpi-backend').textContent = '❌ Offline'; 
     document.getElementById('nav-status').textContent  = 'Backend unreachable';
-    // Also mark DB as unknown when backend is down
+    // when backend is down also mark DB as unknown
     document.getElementById('kpi-db').className    = 'badge wait';
     document.getElementById('kpi-db').textContent  = '⏳ Unknown';
     document.getElementById('sb-db').textContent   = '⏳ Unknown';
@@ -758,9 +687,9 @@ async function loadDashboard() {
   } catch {}
 }
 
-// ═══════════════════════════════════════════════
-// MESSAGES CRUD
-// ═══════════════════════════════════════════════
+// ==================================================
+// MESSAGES (CRUD)
+// ==================================================
 async function loadMessages() {
   try {
     const d = await fetch('/api/messages').then(r => r.json());
@@ -804,9 +733,9 @@ async function deleteMsg(id) {
   } catch { toast('❌ DELETE failed','var(--red)'); }
 }
 
-// ═══════════════════════════════════════════════
+// ==================================================
 // ANALYTICS
-// ═══════════════════════════════════════════════
+// ==================================================
 async function loadAnalytics() {
   try {
     const d      = await fetch('/api/visits/log?limit=200').then(r=>r.json());
@@ -831,9 +760,9 @@ async function loadAnalytics() {
   } catch {}
 }
 
-// ═══════════════════════════════════════════════
+// ==================================================
 // SYSTEM
-// ═══════════════════════════════════════════════
+// ==================================================
 async function loadSystem() {
   try {
     const d = await fetch('/api/system').then(r=>r.json());
@@ -865,9 +794,9 @@ async function loadSystem() {
   } catch {}
 }
 
-// ═══════════════════════════════════════════════
-// INIT — start loading, refresh every 10 seconds
-// ═══════════════════════════════════════════════
+// ==================================================
+// --- INIT - start loading, refresh wvery 10 seconds
+// ==================================================
 loadDashboard();
 setInterval(loadDashboard, 10000);
 </script>
